@@ -1,0 +1,46 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "python": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+    "defaultConfiguration": "Python Debugger: Flask App",
+    "configurations": [
+        {
+            "name": "Python Debugger: Flask App",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run_flask.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Python Debugger: Current File (Python only)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "python": "${command:python.interpreterPath}",
+            "rules": [
+                {
+                    "path": "**/*.json",
+                    "action": "skip"
+                },
+                {
+                    "path": "**/*.html",
+                    "action": "skip"
+                },
+                {
+                    "path": "**/*.js",
+                    "action": "skip"
+                },
+                {
+                    "path": "**/*.css",
+                    "action": "skip"
+                }
+            ]
+        }
+    ]
+}

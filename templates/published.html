@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可视化大屏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #dashboard-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            color: #fff;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: #ff4444;
+        }
+        
+        .error-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .error-detail {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-bottom: 24px;
+        }
+        
+        .back-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        /* 隐藏滚动条但保持滚动功能 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        html {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>正在加载可视化大屏...</div>
+        </div>
+    </div>
+
+    <!-- 引入依赖 -->
+    <script src="/static/js/echarts.js"></script>
+    <script src="/static/js/echarts-gl-master/dist/echarts-gl.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="/static/js/core/ComponentRegistry.js"></script>
+    <script src="/static/js/core/CanvasRenderer.js"></script>
+    
+    <script>
+        /**
+         * 发布页面渲染器
+         * 按照需求文档20.2章节设计
+         */
+        class PublishedPageRenderer {
+            constructor() {
+                this.container = document.getElementById('dashboard-container');
+                this.pageConfig = null;
+                this.canvasRenderer = null;
+                this.refreshTimers = new Map();
+                this.apiDataListeners = new Map();
+                this.websocket = null;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                
+                console.log('📺 PublishedPageRenderer 初始化');
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    // 获取页面ID
+                    const pageId = this.getPageIdFromUrl();
+                    if (!pageId) {
+                        throw new Error('页面ID未找到');
+                    }
+                    
+                    console.log('📖 加载发布页面:', pageId);
+                    
+                    // 等待ComponentRegistry初始化
+                    if (!window.ComponentRegistry) {
+                        await this.waitForComponentRegistry();
+                    }
+                    
+                    // 加载页面配置
+                    await this.loadPageConfig(pageId);
+                    
+                    // 渲染页面
+                    await this.renderPage();
+                    
+                    // 启动数据刷新
+                    this.startDataRefresh();
+                    
+                    // 启动API数据监听
+                    this.startApiDataListener();
+                    
+                    // 启动WebSocket连接（如果支持）
+                    this.initWebSocket();
+                    
+                    console.log('✅ 发布页面加载完成');
+                    
+                } catch (error) {
+                    console.error('❌ 发布页面加载失败:', error);
+                    this.showError(error.message);
+                }
+            }
+            
+            async waitForComponentRegistry() {
+                return new Promise((resolve) => {
+                    const checkRegistry = () => {
+                        if (window.ComponentRegistry) {
+                            resolve();
+                        } else {
+                            setTimeout(checkRegistry, 100);
+                        }
+                    };
+                    checkRegistry();
+                });
+            }
+            
+            getPageIdFromUrl() {
+                const path = window.location.pathname;
+                const match = path.match(/\/published\/([\w-]+)/);
+                return match ? match[1] : null;
+            }
+            
+            async loadPageConfig(pageId) {
+                try {
+                    const response = await fetch(`/api/pages/${pageId}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            throw new Error('页面不存在或未发布');
+                        }
+                        throw new Error(`页面加载失败 (${response.status})`);
+                    }
+                    
+                    this.pageConfig = await response.json();
+                    
+                    // 检查是否已发布
+                    if (!this.pageConfig.published) {
+                        throw new Error('页面未发布');
+                    }
+                    
+                    // 更新页面标题
+                    document.title = this.pageConfig.name || '可视化大屏';
+                    
+                } catch (error) {
+                    console.error('页面配置加载失败:', error);
+                    throw error;
+                }
+            }
+            
+            async renderPage() {
+                if (!this.pageConfig) {
+                    throw new Error('页面配置未加载');
+                }
+                
+                console.log('🎨 开始渲染发布页面');
+                
+                // 清空容器
+                this.container.innerHTML = '';
+                
+                // 创建画布容器 - 使用窗口尺寸
+                const canvas = document.createElement('div');
+                canvas.id = 'published-canvas';
+                canvas.style.cssText = `
+                    width: 100vw;
+                    height: 100vh;
+                    background-color: ${this.pageConfig.canvas.backgroundColor || '#000'};
+                    position: relative;
+                    margin: 0;
+                    overflow: hidden;
+                    border: none;
+                    outline: none;
+                `;
+                
+                // 设置背景图片
+                if (this.pageConfig.canvas.backgroundImage) {
+                    canvas.style.backgroundImage = `url(${this.pageConfig.canvas.backgroundImage})`;
+                    canvas.style.backgroundSize = 'cover';
+                    canvas.style.backgroundPosition = 'center';
+                    canvas.style.backgroundRepeat = 'no-repeat';
+                }
+                
+                this.container.appendChild(canvas);
+                
+                // 初始化画布渲染器
+                this.canvasRenderer = new CanvasRenderer(canvas);
+                
+                // 渲染页面内容
+                await this.canvasRenderer.renderPage(this.pageConfig);
+                
+                // 适应屏幕尺寸
+                this.adaptToScreen();
+                
+                // 自动进入全屏模式（如果支持）
+                this.enterFullscreen();
+                
+                console.log('✅ 页面渲染完成');
+            }
+            
+            adaptToScreen() {
+                const canvas = document.getElementById('published-canvas');
+                if (!canvas) return;
+                
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                
+                // 画布已经是全屏尺寸，只需要确保容器占满全屏
+                this.container.style.width = '100vw';
+                this.container.style.height = '100vh';
+                this.container.style.display = 'flex';
+                this.container.style.alignItems = 'center';
+                this.container.style.justifyContent = 'center';
+                this.container.style.overflow = 'hidden';
+                
+                // 确保画布占满全屏
+                canvas.style.width = '100vw';
+                canvas.style.height = '100vh';
+                canvas.style.transform = 'none';
+                canvas.style.transformOrigin = 'center center';
+                
+                console.log('📐 画布尺寸已设置为窗口尺寸:', windowWidth, 'x', windowHeight);
+            }
+            
+            /**
+             * 进入全屏模式
+             */
+            enterFullscreen() {
+                try {
+                    // 检查是否支持全屏API
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen().then(() => {
+                            console.log('✅ 已进入全屏模式');
+                        }).catch(err => {
+                            console.log('⚠️ 无法进入全屏模式:', err);
+                        });
+                    } else if (document.documentElement.webkitRequestFullscreen) {
+                        document.documentElement.webkitRequestFullscreen();
+                        console.log('✅ 已进入全屏模式 (webkit)');
+                    } else if (document.documentElement.msRequestFullscreen) {
+                        document.documentElement.msRequestFullscreen();
+                        console.log('✅ 已进入全屏模式 (ms)');
+                    } else {
+                        console.log('⚠️ 浏览器不支持全屏模式');
+                    }
+                } catch (error) {
+                    console.log('⚠️ 全屏模式失败:', error);
+                }
+            }
+            
+            startDataRefresh() {
+                if (!this.pageConfig.components) return;
+                
+                console.log('🔄 启动数据刷新');
+                
+                this.pageConfig.components.forEach(componentConfig => {
+                    const refreshInterval = componentConfig.refreshInterval;
+                    if (refreshInterval && refreshInterval > 0) {
+                        const intervalMs = refreshInterval * 1000;
+                        
+                        // 立即加载一次数据
+                        this.loadComponentData(componentConfig.id);
+                        
+                        // 设置定时刷新
+                        const timer = setInterval(() => {
+                            this.loadComponentData(componentConfig.id);
+                        }, intervalMs);
+                        
+                        this.refreshTimers.set(componentConfig.id, timer);
+                        
+                        console.log(`⏰ 组件 ${componentConfig.id} 数据刷新间隔: ${refreshInterval}秒`);
+                    }
+                });
+            }
+            
+            async loadComponentData(componentId) {
+                try {
+                    const response = await fetch(`/api/components/${componentId}/data`);
+                    if (!response.ok) {
+                        console.warn(`组件 ${componentId} 数据加载失败:`, response.status);
+                        return;
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // 更新组件数据
+                    this.updateComponentWithData(componentId, data);
+                    
+                } catch (error) {
+                    console.error(`组件 ${componentId} 数据加载失败:`, error);
+                }
+            }
+            
+            /**
+             * 使用API数据更新组件
+             */
+            updateComponentWithData(componentId, apiData) {
+                try {
+                    const componentInfo = this.canvasRenderer.getComponent(componentId);
+                    if (!componentInfo || !componentInfo.instance) {
+                        console.warn(`组件 ${componentId} 未找到或实例无效`);
+                        return false;
+                    }
+                    
+                    // 如果API返回了数据，使用API数据更新
+                    if (apiData.data) {
+                        // 更新组件配置
+                        componentInfo.config.props = {
+                            ...componentInfo.config.props,
+                            ...apiData.data
+                        };
+                        
+                        // 重新渲染组件
+                        if (componentInfo.instance && typeof componentInfo.instance.setOption === 'function') {
+                            componentInfo.instance.setOption(apiData.data, true, true);
+                            componentInfo.instance.resize();
+                            console.log(`✅ 组件 ${componentId} 已使用API数据更新`);
+                            return true;
+                        }
+                    } else {
+                        // 使用传统方式更新
+                        const component = window.ComponentRegistry.getComponent(componentInfo.type);
+                        if (component && component.updateData) {
+                            component.updateData(componentInfo.instance, apiData);
+                            console.log(`🔄 组件 ${componentId} 数据已更新`);
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                } catch (error) {
+                    console.error(`更新组件 ${componentId} 失败:`, error);
+                    return false;
+                }
+            }
+            
+            /**
+             * 启动API数据监听
+             */
+            startApiDataListener() {
+                console.log('📡 启动API数据监听');
+                
+                // 为每个组件设置API数据监听
+                if (this.pageConfig.components) {
+                    this.pageConfig.components.forEach(componentConfig => {
+                        if (componentConfig.apiEndpoint) {
+                            this.setupApiListener(componentConfig.id, componentConfig.apiEndpoint);
+                        }
+                    });
+                }
+            }
+            
+            /**
+             * 设置API监听器
+             */
+            setupApiListener(componentId, apiEndpoint) {
+                const listener = {
+                    componentId: componentId,
+                    apiEndpoint: apiEndpoint,
+                    interval: null,
+                    lastData: null
+                };
+                
+                // 立即获取一次数据
+                this.fetchApiData(listener);
+                
+                // 设置定时获取数据（每5秒）
+                listener.interval = setInterval(() => {
+                    this.fetchApiData(listener);
+                }, 5000);
+                
+                this.apiDataListeners.set(componentId, listener);
+                console.log(`📡 组件 ${componentId} API监听已启动: ${apiEndpoint}`);
+            }
+            
+            /**
+             * 获取API数据
+             */
+            async fetchApiData(listener) {
+                try {
+                    const response = await fetch(listener.apiEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            data: {},
+                            options: { animation: true }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        console.warn(`API请求失败: ${listener.apiEndpoint}`, response.status);
+                        return;
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // 检查数据是否有变化
+                    const dataString = JSON.stringify(data);
+                    if (dataString !== listener.lastData) {
+                        listener.lastData = dataString;
+                        
+                        // 更新组件
+                        this.updateComponentWithData(listener.componentId, data);
+                    }
+                    
+                } catch (error) {
+                    console.error(`API数据获取失败: ${listener.apiEndpoint}`, error);
+                }
+            }
+            
+            /**
+             * 初始化WebSocket连接
+             */
+            initWebSocket() {
+                try {
+                    // 检查是否支持SocketIO
+                    if (!window.io) {
+                        console.log('⚠️ SocketIO未加载，使用轮询方式');
+                        return;
+                    }
+                    
+                    // 初始化SocketIO连接
+                    this.websocket = io();
+                    
+                    this.websocket.on('connect', () => {
+                        console.log('🔌 SocketIO连接已建立');
+                        this.reconnectAttempts = 0;
+                        
+                        // 发送页面ID，订阅数据更新
+                        this.websocket.emit('subscribe', {
+                            pageId: this.getPageIdFromUrl()
+                        });
+                    });
+                    
+                    this.websocket.on('connected', (data) => {
+                        console.log('✅ 服务器确认连接:', data.message);
+                    });
+                    
+                    this.websocket.on('subscribed', (data) => {
+                        console.log('📡 订阅成功:', data.message);
+                    });
+                    
+                    this.websocket.on('data_update', (message) => {
+                        console.log('📡 收到数据更新:', message);
+                        this.handleWebSocketMessage(message);
+                    });
+                    
+                    this.websocket.on('page_refresh', (data) => {
+                        console.log('🔄 收到页面刷新指令:', data);
+                        this.refreshPage();
+                    });
+                    
+                    this.websocket.on('disconnect', () => {
+                        console.log('🔌 SocketIO连接已断开');
+                        this.attemptReconnect();
+                    });
+                    
+                    this.websocket.on('connect_error', (error) => {
+                        console.error('SocketIO连接错误:', error);
+                    });
+                    
+                } catch (error) {
+                    console.error('SocketIO初始化失败:', error);
+                }
+            }
+            
+            /**
+             * 处理WebSocket消息
+             */
+            handleWebSocketMessage(message) {
+                console.log('📨 收到WebSocket消息:', message);
+                
+                // 处理数据更新消息
+                if (message.component_id && message.data) {
+                    console.log(`📡 收到组件 ${message.component_id} 数据更新`);
+                    this.updateComponentWithData(message.component_id, message.data);
+                } else if (message.type === 'data_update') {
+                    if (message.componentId && message.data) {
+                        console.log(`📡 收到组件 ${message.componentId} 数据更新`);
+                        this.updateComponentWithData(message.componentId, message.data);
+                    }
+                } else if (message.type === 'page_refresh') {
+                    console.log('🔄 收到页面刷新指令');
+                    this.refreshPage();
+                } else {
+                    console.log('📨 收到未知WebSocket消息:', message);
+                }
+            }
+            
+            /**
+             * 使用数据更新组件
+             */
+            updateComponentWithData(componentId, data) {
+                try {
+                    console.log(`🔄 更新组件 ${componentId} 数据:`, data);
+                    
+                    // 查找组件
+                    const componentElement = document.querySelector(`[data-component-id="${componentId}"]`);
+                    if (!componentElement) {
+                        console.warn(`组件 ${componentId} 未找到`);
+                        return;
+                    }
+                    
+                    // 获取ECharts实例
+                    const echartsInstance = echarts.getInstanceByDom(componentElement);
+                    if (!echartsInstance) {
+                        console.warn(`组件 ${componentId} 的ECharts实例未找到`);
+                        return;
+                    }
+                    
+                    // 确保容器背景透明
+                    componentElement.style.backgroundColor = 'transparent';
+                    
+                    // 合并数据，保持透明背景和主题设置
+                    const mergedData = {
+                        ...data,
+                        backgroundColor: 'transparent' // 强制设置透明背景
+                    };
+                    
+                    // 更新图表配置，使用notMerge=false来合并配置而不是完全替换
+                    echartsInstance.setOption(mergedData, false, true);
+                    echartsInstance.resize();
+                    
+                    console.log(`✅ 组件 ${componentId} 数据更新成功`);
+                    
+                } catch (error) {
+                    console.error(`❌ 更新组件 ${componentId} 数据失败:`, error);
+                }
+            }
+            
+            /**
+             * 尝试重连WebSocket
+             */
+            attemptReconnect() {
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.reconnectAttempts++;
+                    const delay = Math.pow(2, this.reconnectAttempts) * 1000; // 指数退避
+                    
+                    console.log(`🔄 ${delay/1000}秒后尝试重连SocketIO (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                    
+                    setTimeout(() => {
+                        this.initWebSocket();
+                    }, delay);
+                } else {
+                    console.log('❌ SocketIO重连失败，使用轮询方式');
+                }
+            }
+            
+            /**
+             * 刷新页面
+             */
+            async refreshPage() {
+                try {
+                    console.log('🔄 刷新页面数据');
+                    const pageId = this.getPageIdFromUrl();
+                    await this.loadPageConfig(pageId);
+                    await this.renderPage();
+                    this.startDataRefresh();
+                } catch (error) {
+                    console.error('页面刷新失败:', error);
+                }
+            }
+            
+            showError(message) {
+                this.container.innerHTML = `
+                    <div class="error-message">
+                        <div class="error-icon">⚠️</div>
+                        <div class="error-title">页面加载失败</div>
+                        <div class="error-detail">${message}</div>
+                        <a href="/" class="back-button">返回首页</a>
+                    </div>
+                `;
+            }
+            
+            destroy() {
+                // 清除所有定时器
+                this.refreshTimers.forEach(timer => {
+                    clearInterval(timer);
+                });
+                this.refreshTimers.clear();
+                
+                // 清除API数据监听器
+                this.apiDataListeners.forEach(listener => {
+                    if (listener.interval) {
+                        clearInterval(listener.interval);
+                    }
+                });
+                this.apiDataListeners.clear();
+                
+                // 关闭SocketIO连接
+                if (this.websocket) {
+                    this.websocket.disconnect();
+                    this.websocket = null;
+                }
+                
+                // 销毁画布渲染器
+                if (this.canvasRenderer) {
+                    this.canvasRenderer.clearCanvas();
+                }
+                
+                console.log('🗑️ PublishedPageRenderer 已销毁');
+            }
+        }
+        
+        // 页面加载完成后初始化
+        let publishedRenderer;
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                publishedRenderer = new PublishedPageRenderer();
+            });
+        } else {
+            publishedRenderer = new PublishedPageRenderer();
+        }
+        
+        // 窗口大小变化时重新适应
+        window.addEventListener('resize', () => {
+            if (publishedRenderer) {
+                publishedRenderer.adaptToScreen();
+            }
+        });
+        
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', () => {
+            if (publishedRenderer) {
+                publishedRenderer.destroy();
+            }
+        });
+        
+        // 窗口大小变化时重新适应屏幕
+        window.addEventListener('resize', () => {
+            if (window.publishedRenderer) {
+                window.publishedRenderer.adaptToScreen();
+                // 重新缩放组件
+                if (window.publishedRenderer.canvasRenderer) {
+                    window.publishedRenderer.canvasRenderer.rescaleComponents();
+                }
+            }
+        });
+        
+        // 全屏状态变化监听
+        document.addEventListener('fullscreenchange', () => {
+            if (window.publishedRenderer) {
+                setTimeout(() => {
+                    window.publishedRenderer.adaptToScreen();
+                    if (window.publishedRenderer.canvasRenderer) {
+                        window.publishedRenderer.canvasRenderer.rescaleComponents();
+                    }
+                }, 100);
+            }
+        });
+        
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (window.publishedRenderer) {
+                setTimeout(() => {
+                    window.publishedRenderer.adaptToScreen();
+                    if (window.publishedRenderer.canvasRenderer) {
+                        window.publishedRenderer.canvasRenderer.rescaleComponents();
+                    }
+                }, 100);
+            }
+        });
+        
+        document.addEventListener('mozfullscreenchange', () => {
+            if (window.publishedRenderer) {
+                setTimeout(() => {
+                    window.publishedRenderer.adaptToScreen();
+                    if (window.publishedRenderer.canvasRenderer) {
+                        window.publishedRenderer.canvasRenderer.rescaleComponents();
+                    }
+                }, 100);
+            }
+        });
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // ESC键返回管理页面
+            if (e.key === 'Escape') {
+                if (confirm('确定要离开当前页面吗？')) {
+                    window.location.href = '/';
+                }
+            }
+            
+            // F11键切换全屏
+            if (e.key === 'F11') {
+                e.preventDefault();
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    document.documentElement.requestFullscreen();
+                }
+            }
+        });
+        
+        console.log('🚀 发布页面脚本加载完成');
+        console.log('💡 按ESC键返回管理页面，按F11键切换全屏');
+    </script>
+</body>
+</html>

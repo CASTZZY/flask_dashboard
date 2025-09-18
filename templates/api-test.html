@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API测试页面 - 数据可视化平台</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <style>
+        .api-test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-form {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .response-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .response-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        
+        .response-content {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-success {
+            border-left-color: #28a745;
+        }
+        
+        .status-error {
+            border-left-color: #dc3545;
+        }
+        
+        .chart-preview {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .preset-btn {
+            padding: 5px 10px;
+            background: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .preset-btn:hover {
+            background: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="api-test-container">
+        <h1>📊 API测试页面</h1>
+        <p>测试图表组件的POST API接口，支持实时数据更新</p>
+        
+        <div class="test-section">
+            <h2>🔧 API测试配置</h2>
+            
+            <div class="preset-buttons">
+                <button class="preset-btn" onclick="loadPreset('line')">折线图示例</button>
+                <button class="preset-btn" onclick="loadPreset('bar')">柱状图示例</button>
+                <button class="preset-btn" onclick="loadPreset('pie')">饼图示例</button>
+                <button class="preset-btn" onclick="loadPreset('scatter')">散点图示例</button>
+                <button class="preset-btn" onclick="loadPreset('radar')">雷达图示例</button>
+                <button class="preset-btn" onclick="loadPreset('gauge')">仪表盘示例</button>
+            </div>
+            
+            <form class="test-form" id="apiTestForm">
+                <div class="form-group">
+                    <label for="componentId">组件ID:</label>
+                    <input type="text" id="componentId" value="line_basic_001" placeholder="输入组件ID">
+                </div>
+                
+                <div class="form-group">
+                    <label for="requestData">请求数据 (JSON):</label>
+                    <textarea id="requestData" placeholder="输入JSON格式的请求数据"></textarea>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary" onclick="testApi()">🧪 测试API</button>
+                    <button type="button" class="btn btn-secondary" onclick="clearResponse()">🗑️ 清空响应</button>
+                    <button type="button" class="btn btn-secondary" onclick="copyRequest()">📋 复制请求</button>
+                </div>
+            </form>
+            
+            <div class="response-section" id="responseSection" style="display: none;">
+                <h4>📤 API响应</h4>
+                <div class="response-content" id="responseContent"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📈 图表预览</h2>
+            <div id="chartPreview" class="chart-preview"></div>
+        </div>
+    </div>
+
+    <!-- 引入依赖 -->
+    <script src="/static/js/echarts.js"></script>
+    <script src="/static/js/DashboardEditor.js"></script>
+    
+    <script>
+        let chartInstance = null;
+        
+        // 预设数据
+        const presets = {
+            line: {
+                data: {
+                    title: {
+                        text: "销售趋势分析",
+                        left: "center"
+                    },
+                    tooltip: {
+                        trigger: "axis"
+                    },
+                    legend: {
+                        data: ["销售额", "利润"]
+                    },
+                    xAxis: {
+                        type: "category",
+                        data: ["1月", "2月", "3月", "4月", "5月", "6月"]
+                    },
+                    yAxis: {
+                        type: "value"
+                    },
+                    series: [
+                        {
+                            name: "销售额",
+                            type: "line",
+                            data: [120, 132, 101, 134, 90, 230],
+                            smooth: true
+                        },
+                        {
+                            name: "利润",
+                            type: "line",
+                            data: [60, 66, 50, 67, 45, 115],
+                            smooth: true
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            },
+            bar: {
+                data: {
+                    title: {
+                        text: "月度销售统计",
+                        left: "center"
+                    },
+                    tooltip: {
+                        trigger: "axis"
+                    },
+                    legend: {
+                        data: ["Q1", "Q2"]
+                    },
+                    xAxis: {
+                        type: "category",
+                        data: ["北京", "上海", "广州", "深圳", "杭州", "成都"]
+                    },
+                    yAxis: {
+                        type: "value"
+                    },
+                    series: [
+                        {
+                            name: "Q1",
+                            type: "bar",
+                            data: [120, 200, 150, 80, 70, 110]
+                        },
+                        {
+                            name: "Q2",
+                            type: "bar",
+                            data: [132, 180, 160, 90, 80, 120]
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            },
+            pie: {
+                data: {
+                    title: {
+                        text: "市场份额分布",
+                        left: "center"
+                    },
+                    tooltip: {
+                        trigger: "item",
+                        formatter: "{a} <br/>{b}: {c} ({d}%)"
+                    },
+                    legend: {
+                        orient: "vertical",
+                        left: "left"
+                    },
+                    series: [
+                        {
+                            name: "访问来源",
+                            type: "pie",
+                            radius: "50%",
+                            data: [
+                                {"value": 1048, "name": "搜索引擎"},
+                                {"value": 735, "name": "直接访问"},
+                                {"value": 580, "name": "邮件营销"},
+                                {"value": 484, "name": "联盟广告"},
+                                {"value": 300, "name": "视频广告"}
+                            ]
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            },
+            scatter: {
+                data: {
+                    title: {
+                        text: "身高体重关系分析",
+                        left: "center"
+                    },
+                    tooltip: {
+                        trigger: "item"
+                    },
+                    xAxis: {
+                        type: "value",
+                        name: "身高 (cm)"
+                    },
+                    yAxis: {
+                        type: "value",
+                        name: "体重 (kg)"
+                    },
+                    series: [
+                        {
+                            name: "男性",
+                            type: "scatter",
+                            data: [
+                                [170, 65], [175, 70], [180, 75], [185, 80], [190, 85],
+                                [165, 60], [172, 68], [178, 72], [182, 78], [188, 82]
+                            ],
+                            symbolSize: 8
+                        },
+                        {
+                            name: "女性",
+                            type: "scatter",
+                            data: [
+                                [160, 50], [165, 55], [170, 60], [175, 65], [180, 70],
+                                [155, 45], [162, 52], [168, 58], [173, 63], [178, 68]
+                            ],
+                            symbolSize: 8
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            },
+            radar: {
+                data: {
+                    title: {
+                        text: "能力评估雷达图",
+                        left: "center"
+                    },
+                    tooltip: {},
+                    legend: {
+                        data: ["预算分配", "实际开销"]
+                    },
+                    radar: {
+                        indicator: [
+                            {"name": "销售", "max": 6500},
+                            {"name": "管理", "max": 16000},
+                            {"name": "信息技术", "max": 30000},
+                            {"name": "客服", "max": 38000},
+                            {"name": "研发", "max": 52000},
+                            {"name": "市场", "max": 25000}
+                        ]
+                    },
+                    series: [
+                        {
+                            name: "预算分配",
+                            type: "radar",
+                            data: [
+                                {
+                                    value: [4200, 3000, 20000, 35000, 50000, 18000],
+                                    name: "预算分配"
+                                }
+                            ]
+                        },
+                        {
+                            name: "实际开销",
+                            type: "radar",
+                            data: [
+                                {
+                                    value: [5000, 14000, 28000, 26000, 42000, 21000],
+                                    name: "实际开销"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            },
+            gauge: {
+                data: {
+                    title: {
+                        text: "系统性能监控",
+                        left: "center"
+                    },
+                    tooltip: {
+                        formatter: "{a} <br/>{b} : {c}%"
+                    },
+                    series: [
+                        {
+                            name: "CPU使用率",
+                            type: "gauge",
+                            detail: {
+                                formatter: "{value}%"
+                            },
+                            data: [
+                                {
+                                    value: 50,
+                                    name: "CPU"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                options: {
+                    animation: true,
+                    theme: "default"
+                }
+            }
+        };
+        
+        // 加载预设数据
+        function loadPreset(type) {
+            const preset = presets[type];
+            if (preset) {
+                document.getElementById('requestData').value = JSON.stringify(preset, null, 2);
+            }
+        }
+        
+        // 测试API
+        async function testApi() {
+            const componentId = document.getElementById('componentId').value;
+            const requestDataText = document.getElementById('requestData').value;
+            
+            if (!componentId) {
+                alert('请输入组件ID');
+                return;
+            }
+            
+            if (!requestDataText) {
+                alert('请输入请求数据');
+                return;
+            }
+            
+            let requestData;
+            try {
+                requestData = JSON.parse(requestDataText);
+            } catch (e) {
+                alert('请求数据格式错误：' + e.message);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/components/${componentId}/data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // 显示响应
+                showResponse(result, response.ok);
+                
+                // 如果成功，更新图表预览
+                if (result.success && result.data) {
+                    updateChartPreview(result.data);
+                }
+                
+            } catch (error) {
+                showResponse({
+                    success: false,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                }, false);
+            }
+        }
+        
+        // 显示响应
+        function showResponse(data, success) {
+            const responseSection = document.getElementById('responseSection');
+            const responseContent = document.getElementById('responseContent');
+            
+            responseSection.style.display = 'block';
+            responseSection.className = `response-section ${success ? 'status-success' : 'status-error'}`;
+            responseContent.textContent = JSON.stringify(data, null, 2);
+        }
+        
+        // 清空响应
+        function clearResponse() {
+            document.getElementById('responseSection').style.display = 'none';
+        }
+        
+        // 复制请求
+        function copyRequest() {
+            const requestData = document.getElementById('requestData').value;
+            navigator.clipboard.writeText(requestData).then(() => {
+                alert('请求数据已复制到剪贴板');
+            });
+        }
+        
+        // 更新图表预览
+        function updateChartPreview(data) {
+            const container = document.getElementById('chartPreview');
+            
+            // 销毁旧实例
+            if (chartInstance) {
+                chartInstance.dispose();
+            }
+            
+            // 创建新实例
+            chartInstance = echarts.init(container);
+            chartInstance.setOption(data, true, true);
+            
+            // 响应式调整
+            window.addEventListener('resize', () => {
+                if (chartInstance) {
+                    chartInstance.resize();
+                }
+            });
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 加载默认预设
+            loadPreset('line');
+        });
+    </script>
+</body>
+</html>

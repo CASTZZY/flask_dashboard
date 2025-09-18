@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可视化大屏管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn.primary {
+            background: rgba(255,255,255,0.9);
+            color: #667eea;
+        }
+        
+        .btn.primary:hover {
+            background: white;
+        }
+        
+        .page-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        
+        .page-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .page-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+        }
+        
+        .page-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .page-info p {
+            color: #666;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        
+        .page-meta {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 16px;
+        }
+        
+        .page-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+        
+        .page-status.published {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .page-status.draft {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .page-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            color: #666;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .page-btn:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .page-btn.primary {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+        
+        .page-btn.primary:hover {
+            background: #5a67d8;
+        }
+        
+        .page-btn.danger {
+            background: #e53e3e;
+            border-color: #e53e3e;
+            color: white;
+        }
+        
+        .page-btn.danger:hover {
+            background: #c53030;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+        
+        .empty-state .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .empty-state p {
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-bottom: 24px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        /* 加载状态 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            color: white;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 16px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .page-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 可视化大屏管理</h1>
+            <p>创建和管理您的可视化大屏项目</p>
+        </div>
+        
+        <div class="actions">
+            <button class="btn primary" onclick="createNewPage()">
+                ➕ 创建新页面
+            </button>
+            <a href="/api-docs" class="btn">
+                📚 API文档
+            </a>
+            <button class="btn" onclick="refreshPages()">
+                🔄 刷新列表
+            </button>
+        </div>
+        
+        <div id="page-list">
+            <div class="loading">
+                <div class="spinner"></div>
+                <span>加载中...</span>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>🚀 基于Python Flask + ECharts的可视化大屏系统</p>
+        </div>
+    </div>
+
+    <script>
+        // 页面管理器
+        class PageManager {
+            constructor() {
+                this.pages = [];
+                this.init();
+            }
+            
+            async init() {
+                console.log('📋 PageManager 初始化');
+                await this.loadPages();
+                this.renderPages();
+            }
+            
+            async loadPages() {
+                try {
+                    const response = await fetch('/api/pages');
+                    if (response.ok) {
+                        this.pages = await response.json();
+                        console.log('✅ 页面列表加载完成:', this.pages.length);
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('❌ 页面列表加载失败:', error);
+                    this.pages = [];
+                    this.showMessage('页面列表加载失败', 'error');
+                }
+            }
+            
+            renderPages() {
+                const container = document.getElementById('page-list');
+                
+                if (this.pages.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📄</div>
+                            <h3>暂无页面</h3>
+                            <p>点击"创建新页面"开始您的第一个可视化大屏项目</p>
+                            <button class="btn primary" onclick="createNewPage()">
+                                ➕ 创建新页面
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const pageGrid = document.createElement('div');
+                pageGrid.className = 'page-grid';
+                
+                this.pages.forEach(page => {
+                    const pageCard = this.createPageCard(page);
+                    pageGrid.appendChild(pageCard);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(pageGrid);
+            }
+            
+            createPageCard(page) {
+                const card = document.createElement('div');
+                card.className = 'page-card';
+                
+                const createdDate = new Date(page.createdAt).toLocaleDateString('zh-CN');
+                const updatedDate = new Date(page.updatedAt).toLocaleDateString('zh-CN');
+                
+                card.innerHTML = `
+                    <div class="page-info">
+                        <h3>${page.name}</h3>
+                        <p>${page.description || '暂无描述'}</p>
+                        <div class="page-meta">
+                            创建：${createdDate} | 更新：${updatedDate}
+                        </div>
+                        <div class="page-status ${page.published ? 'published' : 'draft'}">
+                            ${page.published ? '✅ 已发布' : '📝 草稿'}
+                        </div>
+                    </div>
+                    <div class="page-actions">
+                        <a href="/editor/${page.id}" class="page-btn primary">✏️ 编辑</a>
+                        ${page.published ? `<a href="/published/${page.id}" target="_blank" class="page-btn">👁️ 查看</a>` : ''}
+                        <button class="page-btn" onclick="pageManager.togglePublish('${page.id}', ${page.published})">
+                            ${page.published ? '📤 取消发布' : '🚀 发布'}
+                        </button>
+                        <button class="page-btn" onclick="pageManager.duplicatePage('${page.id}')">📋 复制</button>
+                        <button class="page-btn danger" onclick="pageManager.deletePage('${page.id}', '${page.name}')">🗑️ 删除</button>
+                    </div>
+                `;
+                
+                return card;
+            }
+            
+            async createPage(name, description = '') {
+                try {
+                    const response = await fetch('/api/pages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            description: description
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const newPage = await response.json();
+                        console.log('✅ 页面创建成功:', newPage.id);
+                        
+                        // 跳转到编辑器
+                        window.location.href = `/editor/${newPage.id}`;
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('❌ 页面创建失败:', error);
+                    this.showMessage('页面创建失败', 'error');
+                }
+            }
+            
+            async deletePage(pageId, pageName) {
+                if (!confirm(`确定要删除页面"${pageName}"吗？此操作不可撤销。`)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/pages/${pageId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ 页面删除成功:', pageId);
+                        this.showMessage('页面删除成功', 'success');
+                        await this.loadPages();
+                        this.renderPages();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('❌ 页面删除失败:', error);
+                    this.showMessage('页面删除失败', 'error');
+                }
+            }
+            
+            async togglePublish(pageId, isPublished) {
+                try {
+                    const endpoint = isPublished ? 'unpublish' : 'publish';
+                    const response = await fetch(`/api/pages/${pageId}/${endpoint}`, {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        const action = isPublished ? '取消发布' : '发布';
+                        console.log(`✅ 页面${action}成功:`, pageId);
+                        this.showMessage(`页面${action}成功`, 'success');
+                        await this.loadPages();
+                        this.renderPages();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (error) {
+                    console.error('❌ 发布状态更改失败:', error);
+                    this.showMessage('操作失败', 'error');
+                }
+            }
+            
+            async duplicatePage(pageId) {
+                try {
+                    // 获取原页面数据
+                    const response = await fetch(`/api/pages/${pageId}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const originalPage = await response.json();
+                    
+                    // 创建副本
+                    const copyName = `${originalPage.name} - 副本`;
+                    await this.createPage(copyName, originalPage.description);
+                    
+                } catch (error) {
+                    console.error('❌ 页面复制失败:', error);
+                    this.showMessage('页面复制失败', 'error');
+                }
+            }
+            
+            showMessage(text, type = 'info') {
+                const colors = {
+                    success: '#52c41a',
+                    error: '#ff4d4f',
+                    warning: '#faad14',
+                    info: '#1890ff'
+                };
+                
+                const message = document.createElement('div');
+                message.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 12px 20px;
+                    background: ${colors[type]};
+                    color: white;
+                    border-radius: 6px;
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                `;
+                message.textContent = text;
+                
+                document.body.appendChild(message);
+                
+                setTimeout(() => {
+                    if (message.parentElement) {
+                        message.style.transition = 'all 0.3s ease';
+                        message.style.opacity = '0';
+                        message.style.transform = 'translateX(100%)';
+                        setTimeout(() => message.remove(), 300);
+                    }
+                }, 3000);
+            }
+        }
+        
+        // 全局函数
+        function createNewPage() {
+            const name = prompt('请输入页面名称:');
+            if (name && name.trim()) {
+                const description = prompt('请输入页面描述（可选）:') || '';
+                pageManager.createPage(name.trim(), description.trim());
+            }
+        }
+        
+        function refreshPages() {
+            pageManager.init();
+        }
+        
+        // 初始化
+        let pageManager;
+        document.addEventListener('DOMContentLoaded', () => {
+            pageManager = new PageManager();
+        });
+        
+        console.log('🚀 管理页面加载完成');
+    </script>
+</body>
+</html>

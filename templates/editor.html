@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可视化大屏编辑器</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- 组件库面板 -->
+        <aside class="component-panel">
+            <div class="component-panel-header">
+                <h2>📚 组件库</h2>
+            </div>
+            <div class="component-library" id="component-library">
+                <!-- 组件将通过JavaScript动态加载 -->
+            </div>
+        </aside>
+        
+        <!-- 主编辑区域 -->
+        <main class="editor-main">
+            <!-- 工具栏 -->
+            <div class="toolbar" id="toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-button primary" id="save-btn">
+                        💾 保存
+                    </button>
+                    <button class="toolbar-button" id="preview-btn">
+                        👁️ 预览
+                    </button>
+                </div>
+                
+                <div class="toolbar-group">
+                    <button class="toolbar-button" id="export-btn">
+                        📤 导出
+                    </button>
+                    <button class="toolbar-button danger" id="clear-btn">
+                        🗑️ 清除
+                    </button>
+                </div>
+                
+                <!-- 主题切换器 -->
+                <div class="toolbar-group theme-switcher">
+                    <label for="theme-selector" class="theme-label">🎨 主题:</label>
+                    <select id="theme-selector" class="theme-select">
+                        <option value="default">默认主题</option>
+                        <option value="dark">深色主题</option>
+                        <option value="vintage">复古主题</option>
+                        <option value="macarons">马卡龙主题</option>
+                    </select>
+                </div>
+                
+                <div class="toolbar-group" style="margin-left: auto;">
+                    <a href="/" class="toolbar-button">
+                        📋 管理页面
+                    </a>
+                    <a href="/api-docs" class="toolbar-button">
+                        📚 API文档
+                    </a>
+                </div>
+            </div>
+            
+            <!-- 画布区域 -->
+            <div class="canvas-area">
+                <div class="canvas" id="canvas">
+                    <!-- 组件将拖拽到这里 -->
+                </div>
+            </div>
+            
+            <!-- 状态栏 -->
+            <div class="status-bar" id="status-bar">
+                <div class="status-item">
+                    <span>画布:</span>
+                    <span id="canvas-size">1920 × 1080</span>
+                </div>
+                <div class="status-item">
+                    <span id="component-count">组件: 0</span>
+                </div>
+                <div class="status-item">
+                    <span>状态:</span>
+                    <span id="save-status" class="status-clean">已保存</span>
+                </div>
+                <div class="status-item" style="margin-left: auto;">
+                    <span>🎨 可视化大屏编辑器</span>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 配置面板 -->
+        <aside class="config-panel">
+            <div class="config-panel-header">
+                <h2>🎛️ 配置面板</h2>
+            </div>
+            <div class="config-panel-content" id="config-panel">
+                <!-- 配置内容将显示在这里 -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- 引入依赖 -->
+    <script src="/static/js/echarts.js"></script>
+    <script src="/static/js/echarts-gl-master/dist/echarts-gl.min.js"></script>
+    
+    <!-- ECharts主题 -->
+    <script>
+        // 等待ECharts加载完成后注册主题
+        function registerEChartsThemes() {
+            if (window.echarts) {
+            // 深色主题
+            echarts.registerTheme('dark', {
+                color: ['#4FC3F7', '#81C784', '#FFB74D', '#F06292', '#64B5F6'],
+                backgroundColor: '#1e1e1e',
+                textStyle: {
+                    color: '#ffffff'
+                },
+                title: {
+                    textStyle: {
+                        color: '#ffffff'
+                    },
+                    subtextStyle: {
+                        color: '#cccccc'
+                    }
+                },
+                legend: {
+                    textStyle: {
+                        color: '#ffffff'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    textStyle: {
+                        color: '#ffffff'
+                    }
+                },
+                categoryAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#333333'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                valueAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#333333'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                line: {
+                    itemStyle: {
+                        borderWidth: 1
+                    },
+                    lineStyle: {
+                        width: 2
+                    },
+                    symbolSize: 4,
+                    symbol: 'emptyCircle',
+                    smooth: false
+                },
+                bar: {
+                    itemStyle: {
+                        barBorderWidth: 0,
+                        barBorderColor: '#ccc'
+                    }
+                },
+                pie: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                scatter: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                boxplot: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                parallel: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                sankey: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                funnel: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                gauge: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    }
+                },
+                candlestick: {
+                    itemStyle: {
+                        color: '#4FC3F7',
+                        color0: '#F06292',
+                        borderColor: '#4FC3F7',
+                        borderColor0: '#F06292',
+                        borderWidth: 1
+                    }
+                },
+                graph: {
+                    itemStyle: {
+                        borderWidth: 0,
+                        borderColor: '#ccc'
+                    },
+                    lineStyle: {
+                        width: 1,
+                        color: '#666666'
+                    },
+                    symbolSize: 4,
+                    symbol: 'emptyCircle',
+                    smooth: false,
+                    label: {
+                        show: false
+                    },
+                    labelLayout: {
+                        hideOverlap: false
+                    },
+                    emphasis: {
+                        focus: 'series',
+                        blurScope: 'coordinateSystem'
+                    }
+                },
+                map: {
+                    itemStyle: {
+                        areaColor: '#eee',
+                        borderColor: '#444',
+                        borderWidth: 0.5
+                    },
+                    label: {
+                        color: '#000'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: 'rgba(255,215,0,0.8)',
+                            borderColor: '#444',
+                            borderWidth: 1
+                        },
+                        label: {
+                            color: 'rgb(100,0,0)'
+                        }
+                    }
+                },
+                geo: {
+                    itemStyle: {
+                        areaColor: '#eee',
+                        borderColor: '#444',
+                        borderWidth: 0.5
+                    },
+                    label: {
+                        color: '#000'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: 'rgba(255,215,0,0.8)',
+                            borderColor: '#444',
+                            borderWidth: 1
+                        },
+                        label: {
+                            color: 'rgb(100,0,0)'
+                        }
+                    }
+                },
+                categoryAxis: {
+                    axisLine: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        show: true,
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        show: false,
+                        lineStyle: {
+                            color: ['#333333']
+                        }
+                    },
+                    splitArea: {
+                        show: false,
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                valueAxis: {
+                    axisLine: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        show: true,
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        show: true,
+                        lineStyle: {
+                            color: ['#333333']
+                        }
+                    },
+                    splitArea: {
+                        show: false,
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                logAxis: {
+                    axisLine: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        show: true,
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        show: true,
+                        lineStyle: {
+                            color: ['#333333']
+                        }
+                    },
+                    splitArea: {
+                        show: false,
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                timeAxis: {
+                    axisLine: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisTick: {
+                        show: true,
+                        lineStyle: {
+                            color: '#666666'
+                        }
+                    },
+                    axisLabel: {
+                        show: true,
+                        textStyle: {
+                            color: '#ffffff'
+                        }
+                    },
+                    splitLine: {
+                        show: true,
+                        lineStyle: {
+                            color: ['#333333']
+                        }
+                    },
+                    splitArea: {
+                        show: false,
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.05)', 'rgba(200,200,200,0.02)']
+                        }
+                    }
+                },
+                toolbox: {
+                    iconStyle: {
+                        borderColor: '#ffffff'
+                    },
+                    emphasis: {
+                        iconStyle: {
+                            borderColor: '#4FC3F7'
+                        }
+                    }
+                },
+                timeline: {
+                    lineStyle: {
+                        color: '#666666',
+                        width: 1
+                    },
+                    itemStyle: {
+                        color: '#666666',
+                        borderWidth: 1
+                    },
+                    controlStyle: {
+                        color: '#666666',
+                        borderColor: '#666666',
+                        borderWidth: 0.5
+                    },
+                    checkpointStyle: {
+                        color: '#4FC3F7',
+                        borderColor: '#ffffff'
+                    },
+                    label: {
+                        color: '#ffffff'
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            color: '#4FC3F7'
+                        },
+                        controlStyle: {
+                            color: '#4FC3F7',
+                            borderColor: '#4FC3F7',
+                            borderWidth: 0.5
+                        },
+                        label: {
+                            color: '#ffffff'
+                        }
+                    }
+                },
+                visualMap: {
+                    color: ['#bf444c', '#d88273', '#f6efa6']
+                },
+                dataZoom: {
+                    backgroundColor: 'rgba(47,69,84,0)',
+                    dataBackgroundColor: 'rgba(255,255,255,0.3)',
+                    fillerColor: 'rgba(167,183,204,0.4)',
+                    handleColor: '#a7b7cc',
+                    handleSize: '100%',
+                    textStyle: {
+                        color: '#ffffff'
+                    }
+                },
+                markPoint: {
+                    label: {
+                        color: '#ffffff'
+                    },
+                    emphasis: {
+                        label: {
+                            color: '#ffffff'
+                        }
+                    }
+                }
+            });
+            
+            // vintage主题
+            echarts.registerTheme('vintage', {
+                backgroundColor: '#fef8ef',
+                textStyle: {
+                    color: '#3c3c3c'
+                },
+                title: {
+                    textStyle: {
+                        color: '#516b83'
+                    }
+                },
+                legend: {
+                    textStyle: {
+                        color: '#3c3c3c'
+                    }
+                },
+                categoryAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#d4c4a8'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.1)', 'rgba(200,200,200,0.05)']
+                        }
+                    }
+                },
+                valueAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#8b7355'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#d4c4a8'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.1)', 'rgba(200,200,200,0.05)']
+                        }
+                    }
+                },
+                series: [{
+                    itemStyle: {
+                        color: '#d87c7c'
+                    }
+                }]
+            });
+            
+            // macarons主题
+            echarts.registerTheme('macarons', {
+                backgroundColor: '#ffffff',
+                textStyle: {
+                    color: '#3c3c3c'
+                },
+                title: {
+                    textStyle: {
+                        color: '#516b83'
+                    }
+                },
+                legend: {
+                    textStyle: {
+                        color: '#3c3c3c'
+                    }
+                },
+                categoryAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#e6e6e6'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.2)', 'rgba(200,200,200,0.1)']
+                        }
+                    }
+                },
+                valueAxis: {
+                    axisLine: {
+                        lineStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    axisTick: {
+                        lineStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    axisLabel: {
+                        textStyle: {
+                            color: '#516b83'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#e6e6e6'
+                        }
+                    },
+                    splitArea: {
+                        areaStyle: {
+                            color: ['rgba(250,250,250,0.2)', 'rgba(200,200,200,0.1)']
+                        }
+                    }
+                },
+                series: [{
+                    itemStyle: {
+                        color: '#2ec7c9'
+                    }
+                }]
+            });
+            
+            console.log('🎨 ECharts主题已注册: dark, vintage, macarons');
+            } else {
+                console.warn('ECharts未加载，延迟注册主题');
+                setTimeout(registerEChartsThemes, 100);
+            }
+        }
+        
+        // 立即尝试注册主题
+        registerEChartsThemes();
+        
+        // 确保在DOM加载完成后再次注册主题
+        document.addEventListener('DOMContentLoaded', () => {
+            registerEChartsThemes();
+        });
+    </script>
+    
+    <!-- 核心模块 -->
+    <script src="/static/js/core/ChartConfigSystem.js"></script>
+    <script src="/static/js/core/ComponentRegistry.js"></script>
+    <script src="/static/js/core/DragLayoutEngine.js"></script>
+    <script src="/static/js/core/ApiExamples.js"></script>
+    <script src="/static/js/core/ConfigManager.js"></script>
+    <script src="/static/js/core/CanvasRenderer.js"></script>
+    
+    <!-- 主编辑器 -->
+    <script src="/static/js/DashboardEditor.js"></script>
+    
+    <script>
+        // 页面加载完成后的初始化
+        console.log('🚀 编辑器页面加载完成');
+        
+        // 添加全局错误处理
+        window.addEventListener('error', (e) => {
+            console.error('全局错误:', e.error);
+        });
+        
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('未处理的Promise拒绝:', e.reason);
+        });
+        
+        // 页面可见性变化处理
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('页面隐藏，暂停自动保存');
+                if (window.DashboardEditor) {
+                    window.DashboardEditor.disableAutoSave();
+                }
+            } else {
+                console.log('页面显示，恢复自动保存');
+                if (window.DashboardEditor) {
+                    window.DashboardEditor.enableAutoSave();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

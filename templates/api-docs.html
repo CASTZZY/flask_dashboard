@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 文档 - 可视化大屏系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .nav-btn {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+            border: 2px solid #667eea;
+        }
+        
+        .nav-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .api-section {
+            margin-bottom: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .api-header {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .api-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .api-method {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #28a745;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .api-method.post {
+            background: #fd7e14;
+        }
+        
+        .api-method.get {
+            background: #28a745;
+        }
+        
+        .api-method.put {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .api-method.delete {
+            background: #dc3545;
+        }
+        
+        .api-content {
+            padding: 30px;
+        }
+        
+        .api-description {
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .api-endpoint {
+            background: #f1f3f4;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .code-block .comment {
+            color: #68d391;
+        }
+        
+        .code-block .string {
+            color: #fbb6ce;
+        }
+        
+        .code-block .number {
+            color: #90cdf4;
+        }
+        
+        .code-block .key {
+            color: #f6e05e;
+        }
+        
+        .example-section {
+            margin: 20px 0;
+        }
+        
+        .example-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .response-section {
+            margin-top: 30px;
+        }
+        
+        .response-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .parameter-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .parameter-table th,
+        .parameter-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .parameter-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .parameter-table .param-name {
+            font-family: 'Courier New', monospace;
+            background: #f1f3f4;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .parameter-table .param-type {
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        .test-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        
+        .test-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .test-result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .test-result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .api-content {
+                padding: 20px;
+            }
+            
+            .parameter-table {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 API 文档</h1>
+            <p>可视化大屏系统 - 组件数据接口文档</p>
+        </div>
+        
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn">🏠 返回首页</a>
+            <a href="/editor" class="nav-btn">🎨 打开编辑器</a>
+            <a href="/components" class="nav-btn">📊 组件展示</a>
+        </div>
+        
+        <!-- 组件数据获取API -->
+        <div class="api-section">
+            <div class="api-header">
+                <h2 class="api-title">组件数据获取
+                    <span class="api-method post">POST</span>
+                </h2>
+            </div>
+            <div class="api-content">
+                <p class="api-description">
+                    获取指定组件的数据，支持自定义查询参数和过滤条件。所有数据请求统一使用POST方式，提供更灵活的参数传递。
+                </p>
+                
+                <div class="api-endpoint">
+                    POST /api/components/{component_id}/data
+                </div>
+                
+                <div class="example-section">
+                    <h3 class="example-title">请求参数</h3>
+                    <table class="parameter-table">
+                        <thead>
+                            <tr>
+                                <th>参数名</th>
+                                <th>类型</th>
+                                <th>必填</th>
+                                <th>描述</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="param-name">component_id</span></td>
+                                <td><span class="param-type">string</span></td>
+                                <td>是</td>
+                                <td>组件ID，如：line_basic, bar_basic, pie_basic</td>
+                            </tr>
+                            <tr>
+                                <td><span class="param-name">dateRange</span></td>
+                                <td><span class="param-type">object</span></td>
+                                <td>否</td>
+                                <td>日期范围过滤，包含start和end字段</td>
+                            </tr>
+                            <tr>
+                                <td><span class="param-name">dimensions</span></td>
+                                <td><span class="param-type">array</span></td>
+                                <td>否</td>
+                                <td>数据维度选择，如：["region", "product"]</td>
+                            </tr>
+                            <tr>
+                                <td><span class="param-name">filters</span></td>
+                                <td><span class="param-type">object</span></td>
+                                <td>否</td>
+                                <td>自定义过滤条件</td>
+                            </tr>
+                            <tr>
+                                <td><span class="param-name">aggregation</span></td>
+                                <td><span class="param-type">string</span></td>
+                                <td>否</td>
+                                <td>数据聚合方式，如：sum, avg, count</td>
+                            </tr>
+                            <tr>
+                                <td><span class="param-name">limit</span></td>
+                                <td><span class="param-type">number</span></td>
+                                <td>否</td>
+                                <td>返回数据的数量限制</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="example-section">
+                    <h3 class="example-title">请求示例</h3>
+                    <div class="code-block">
+<span class="comment">// 基础请求 - 获取柱状图数据</span>
+POST /api/components/bar_basic/data
+Content-Type: application/json
+
+{
+  <span class="key">"dateRange"</span>: {
+    <span class="key">"start"</span>: <span class="string">"2024-01-01"</span>,
+    <span class="key">"end"</span>: <span class="string">"2024-12-31"</span>
+  },
+  <span class="key">"dimensions"</span>: [<span class="string">"region"</span>, <span class="string">"product"</span>],
+  <span class="key">"filters"</span>: {
+    <span class="key">"status"</span>: <span class="string">"active"</span>,
+    <span class="key">"category"</span>: <span class="string">"electronics"</span>
+  },
+  <span class="key">"aggregation"</span>: <span class="string">"sum"</span>,
+  <span class="key">"limit"</span>: <span class="number">100</span>
+}
+                    </div>
+                </div>
+                
+                <div class="example-section">
+                    <h3 class="example-title">JavaScript 调用示例</h3>
+                    <div class="code-block">
+<span class="comment">// 使用 fetch API 调用</span>
+async function getComponentData(componentId, params = {}) {
+  try {
+    const response = await fetch(`/api/components/${componentId}/data`, {
+      method: <span class="string">'POST'</span>,
+      headers: {
+        <span class="key">'Content-Type'</span>: <span class="string">'application/json'</span>
+      },
+      body: JSON.stringify(params)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error(<span class="string">'获取组件数据失败:'</span>, error);
+    throw error;
+  }
+}
+
+<span class="comment">// 调用示例</span>
+const chartData = await getComponentData(<span class="string">'bar_basic'</span>, {
+  dateRange: {
+    start: <span class="string">'2024-01-01'</span>,
+    end: <span class="string">'2024-12-31'</span>
+  },
+  filters: {
+    region: <span class="string">'华东'</span>
+  }
+});
+                    </div>
+                </div>
+                
+                <div class="response-section">
+                    <h3 class="response-title">响应格式</h3>
+                    <div class="code-block">
+{
+  <span class="key">"success"</span>: <span class="number">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"title"</span>: { <span class="key">"text"</span>: <span class="string">"基础柱状图"</span>, <span class="key">"left"</span>: <span class="string">"center"</span> },
+    <span class="key">"tooltip"</span>: { <span class="key">"trigger"</span>: <span class="string">"axis"</span> },
+    <span class="key">"legend"</span>: { <span class="key">"data"</span>: [<span class="string">"销量"</span>] },
+    <span class="key">"xAxis"</span>: {
+      <span class="key">"type"</span>: <span class="string">"category"</span>,
+      <span class="key">"data"</span>: [<span class="string">"周一"</span>, <span class="string">"周二"</span>, <span class="string">"周三"</span>, <span class="string">"周四"</span>, <span class="string">"周五"</span>, <span class="string">"周六"</span>, <span class="string">"周日"</span>]
+    },
+    <span class="key">"yAxis"</span>: { <span class="key">"type"</span>: <span class="string">"value"</span> },
+    <span class="key">"series"</span>: [{
+      <span class="key">"name"</span>: <span class="string">"销量"</span>,
+      <span class="key">"type"</span>: <span class="string">"bar"</span>,
+      <span class="key">"data"</span>: [<span class="number">120</span>, <span class="number">200</span>, <span class="number">150</span>, <span class="number">80</span>, <span class="number">70</span>, <span class="number">110</span>, <span class="number">130</span>]
+    }]
+  },
+  <span class="key">"timestamp"</span>: <span class="string">"2024-01-15T10:30:00.000Z"</span>,
+  <span class="key">"component_id"</span>: <span class="string">"bar_basic"</span>,
+  <span class="key">"request_params"</span>: { <span class="comment">/* 请求参数回显 */</span> }
+}
+                    </div>
+                </div>
+                
+                <button class="test-button" onclick="testComponentDataAPI()">🧪 测试此接口</button>
+                <div id="test-result-1" class="test-result" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- 支持的组件类型 -->
+        <div class="api-section">
+            <div class="api-header">
+                <h2 class="api-title">支持的组件类型</h2>
+            </div>
+            <div class="api-content">
+                <p class="api-description">
+                    系统支持以下组件类型，每种组件都有对应的数据格式和配置选项。
+                </p>
+                
+                <table class="parameter-table">
+                    <thead>
+                        <tr>
+                            <th>组件ID</th>
+                            <th>组件名称</th>
+                            <th>分类</th>
+                            <th>数据格式</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="param-name">line_basic</span></td>
+                            <td>基础折线图</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">bar_basic</span></td>
+                            <td>基础柱状图</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">pie_basic</span></td>
+                            <td>基础饼图</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">scatter_basic</span></td>
+                            <td>基础散点图</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">radar_basic</span></td>
+                            <td>基础雷达图</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">gauge_basic</span></td>
+                            <td>基础仪表盘</td>
+                            <td>ECharts图表</td>
+                            <td>ECharts Option</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">text_basic</span></td>
+                            <td>文本框</td>
+                            <td>基础组件</td>
+                            <td>Text Properties</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">image_basic</span></td>
+                            <td>图片组件</td>
+                            <td>基础组件</td>
+                            <td>Image Properties</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">datetime_basic</span></td>
+                            <td>时间控件</td>
+                            <td>基础组件</td>
+                            <td>DateTime Properties</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 错误代码说明 -->
+        <div class="api-section">
+            <div class="api-header">
+                <h2 class="api-title">错误代码说明</h2>
+            </div>
+            <div class="api-content">
+                <table class="parameter-table">
+                    <thead>
+                        <tr>
+                            <th>状态码</th>
+                            <th>错误类型</th>
+                            <th>描述</th>
+                            <th>解决方案</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="param-name">200</span></td>
+                            <td>成功</td>
+                            <td>请求处理成功</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">400</span></td>
+                            <td>请求错误</td>
+                            <td>请求参数格式错误或缺少必要参数</td>
+                            <td>检查请求参数格式和必填字段</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">404</span></td>
+                            <td>组件未找到</td>
+                            <td>指定的组件ID不存在</td>
+                            <td>检查组件ID是否正确</td>
+                        </tr>
+                        <tr>
+                            <td><span class="param-name">500</span></td>
+                            <td>服务器错误</td>
+                            <td>服务器内部错误</td>
+                            <td>联系系统管理员</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testComponentDataAPI() {
+            const resultDiv = document.getElementById('test-result-1');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '正在测试...';
+            
+            try {
+                const response = await fetch('/api/components/bar_basic/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dateRange: {
+                            start: '2024-01-01',
+                            end: '2024-12-31'
+                        },
+                        filters: {
+                            region: '华东'
+                        },
+                        limit: 10
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'test-result success';
+                    resultDiv.textContent = '✅ 测试成功！\n\n' + JSON.stringify(result, null, 2);
+                } else {
+                    resultDiv.className = 'test-result error';
+                    resultDiv.textContent = '❌ 测试失败：\n\n' + JSON.stringify(result, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = '❌ 网络错误：\n\n' + error.message;
+            }
+        }
+        
+        console.log('📚 API文档页面加载完成');
+    </script>
+</body>
+</html>

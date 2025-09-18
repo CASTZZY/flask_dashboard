@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>背景色修复测试</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            width: 400px;
+            height: 300px;
+            background: transparent;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h2>🎨 图表背景色修复测试</h2>
+        <p>测试图表在深色主题下是否保持透明背景</p>
+        
+        <div class="chart-container" id="chart1"></div>
+        <div class="chart-container" id="chart2"></div>
+        
+        <button onclick="updateChart1()">更新图表1数据</button>
+        <button onclick="updateChart2()">更新图表2数据</button>
+        <button onclick="testBackground()">测试背景色</button>
+    </div>
+
+    <script>
+        let chart1, chart2;
+        
+        // 初始化图表
+        function initCharts() {
+            // 图表1 - 折线图
+            chart1 = echarts.init(document.getElementById('chart1'), 'dark', {
+                backgroundColor: 'transparent'
+            });
+            
+            // 图表2 - 柱状图
+            chart2 = echarts.init(document.getElementById('chart2'), 'dark', {
+                backgroundColor: 'transparent'
+            });
+            
+            // 设置初始配置
+            chart1.setOption({
+                backgroundColor: 'transparent',
+                title: { text: '折线图测试', left: 'center', textStyle: { color: '#fff' } },
+                xAxis: { type: 'category', data: ['A', 'B', 'C', 'D', 'E'] },
+                yAxis: { type: 'value' },
+                series: [{ name: '数据', type: 'line', data: [10, 20, 15, 25, 30] }]
+            });
+            
+            chart2.setOption({
+                backgroundColor: 'transparent',
+                title: { text: '柱状图测试', left: 'center', textStyle: { color: '#fff' } },
+                xAxis: { type: 'category', data: ['A', 'B', 'C', 'D', 'E'] },
+                yAxis: { type: 'value' },
+                series: [{ name: '数据', type: 'bar', data: [15, 25, 20, 30, 35] }]
+            });
+        }
+        
+        // 更新图表1
+        function updateChart1() {
+            const newData = Array.from({length: 5}, () => Math.floor(Math.random() * 50));
+            chart1.setOption({
+                backgroundColor: 'transparent', // 强制保持透明背景
+                series: [{ data: newData }]
+            }, false, true);
+            console.log('图表1已更新，背景色:', chart1.getOption().backgroundColor);
+        }
+        
+        // 更新图表2
+        function updateChart2() {
+            const newData = Array.from({length: 5}, () => Math.floor(Math.random() * 50));
+            chart2.setOption({
+                backgroundColor: 'transparent', // 强制保持透明背景
+                series: [{ data: newData }]
+            }, false, true);
+            console.log('图表2已更新，背景色:', chart2.getOption().backgroundColor);
+        }
+        
+        // 测试背景色
+        function testBackground() {
+            console.log('图表1背景色:', chart1.getOption().backgroundColor);
+            console.log('图表2背景色:', chart2.getOption().backgroundColor);
+            console.log('容器1背景色:', document.getElementById('chart1').style.backgroundColor);
+            console.log('容器2背景色:', document.getElementById('chart2').style.backgroundColor);
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('load', initCharts);
+    </script>
+</body>
+</html>
