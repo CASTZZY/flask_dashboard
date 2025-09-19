@@ -563,4 +563,4 @@ if __name__ == '__main__':
     print("🎬 API演示: http://localhost:5000/api-demo")
     print("🔌 WebSocket支持已启用")
     print("=" * 50)
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

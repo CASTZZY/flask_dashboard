@@ -19,4 +19,4 @@ if __name__ == "__main__":
     print("=" * 50)
     
     # 运行应用
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
